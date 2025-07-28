@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Brain Tumor Classifier</title>
+<style>
+    :root {
+        --bg-color: #121212;
+        --text-color: #eee;
+        --card-bg: #222;
+        --highlight: rgba(255, 255, 255, 0.1);
+
+        /* Background Gradient Colors (Dark Mode) - very subtle, low opacity */
+        --gradient-color-1: #3a0ca31a;
+        --gradient-color-2: #4361ee1a;
+        --gradient-color-3: #4cc9f01a;
+        --gradient-color-4: #480ca81a;
+        --gradient-color-5: #b5179e1a;
+        --gradient-color-6: #f725851a;
+        --gradient-color-7: #4d00801a;
+    }
+    body.light-mode {
+        --bg-color: #f4f4f4;
+        --text-color: #111;
+        --card-bg: #fff;
+        --highlight: rgba(0, 0, 0, 0.1);
+
+        /* Background Gradient Colors (Light Mode) - even lower opacity for lightness */
+        --gradient-color-1: #6a5acd10;
+        --gradient-color-2: #87ceeb10;
+        --gradient-color-3: #e0b0ff10;
+        --gradient-color-4: #add8e610;
+        --gradient-color-5: #ffb6c110;
+        --gradient-color-6: #9370db10;
+        --gradient-color-7: #c3e2e010;
+    }
+    body {
+        font-family: 'Inter', Arial, sans-serif; /* Changed to Inter as preferred */
+        background: var(--bg-color); /* Fallback or base color */
+        color: var(--text-color);
+        margin: 0; /* Remove default body margin */
+        padding: 20px; /* Add padding here instead */
+        transition: background 0.3s ease, color 0.3s ease;
+        overflow-x: hidden; /* Prevent horizontal scroll due to large background */
+        min-height: 100vh; /* Ensure body takes full viewport height */
+        display: flex;
+        flex-direction: column;
+        align-items: center; /* Center content horizontally */
+
+        /* Animated background styles */
+        background-image:
+            radial-gradient(at 27% 37%, var(--gradient-color-1) 0px, transparent 50%),
+            radial-gradient(at 84% 39%, var(--gradient-color-2) 0px, transparent 50%),
+            radial-gradient(at 19% 82%, var(--gradient-color-3) 0px, transparent 50%),
+            radial-gradient(at 55% 91%, var(--gradient-color-4) 0px, transparent 50%),
+            radial-gradient(at 20% 12%, var(--gradient-color-5) 0px, transparent 50%),
+            radial-gradient(at 75% 10%, var(--gradient-color-6) 0px, transparent 50%),
+            radial-gradient(at 33% 40%, var(--gradient-color-7) 0px, transparent 50%);
+        background-size: 150% 150%; /* Larger than viewport to allow movement */
+        background-position: 0% 0%;
+        animation: moveBackground 60s linear infinite alternate; /* Slow, gentle animation */
+    }
+
+    /* Pseudo-element for subtle noise/grain overlay */
+    body::after {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -2; /* Behind content and animated gradient */
+        opacity: 0.03; /* Very subtle */
+        pointer-events: none; /* Allow clicks to pass through */
+        filter: url(#grainyNoise); /* Apply the SVG filter */
+    }
+
+    @keyframes moveBackground {
+        0% { background-position: 0% 0%; }
+        25% { background-position: 10% 50%; }
+        50% { background-position: 50% 100%; }
+        75% { background-position: 90% 50%; }
+        100% { background-position: 0% 0%; }
+    }
+
+    /* General layout adjustments for better centering */
+    #main-content {
+        max-width: 1200px; /* Limit content width */
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        z-index: 1; /* Ensure content is above background */
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+    #theme-toggle-wrapper {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        z-index: 100; /* Ensure toggle is always on top */
+    }
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 24px;
+    }
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 24px;
+    }
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    input:checked + .slider {
+        background-color:rgb(19, 241, 11);
+    }
+    input:checked + .slider:before {
+        transform: translateX(26px);
+    }
+    #theme-label {
+        font-size: 0.9rem;
+    }
+
+    #patient-name-section {
+        margin-top: 20px;
+        margin-bottom: 15px;
+        text-align: center;
+        width: 100%;
+    }
+
+    #patient-name-input {
+        padding: 10px 15px;
+        border: 1px solid #555;
+        border-radius: 5px;
+        background-color: #333;
+        color: var(--text-color);
+        font-size: 1rem;
+        width: 250px; /* Adjust width as needed */
+        box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    }
+    body.light-mode #patient-name-input {
+        border: 1px solid #aaa;
+        background-color: #eee;
+        color: #111;
+    }
+    #patient-name-input::placeholder {
+        color: #999;
+    }
+
+    #upload-section {
+        text-align: center;
+        margin-bottom: 1rem;
+        width: 100%; /* Take full width of parent */
+    }
+    label[for=image-input], label[for=patient-name-input] { /* Apply styles to both labels */
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 10px 20px;
+        background: #333;
+        color: white;
+        border-radius: 7px;
+        display: inline-block;
+        margin-bottom: 10px;
+        transition: background 0.3s ease;
+    }
+    body.light-mode label[for=image-input], body.light-mode label[for=patient-name-input] {
+        background: #ccc;
+        color: #000;
+    }
+    label[for=image-input]:hover, label[for=patient-name-input]:hover {
+        background: #444;
+    }
+    input[type="file"] {
+        display: none;
+    }
+
+    #preview {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 30px;
+        margin-bottom: 1rem;
+        width: 100%; /* Take full width for flexible items */
+    }
+
+    .preview-item {
+        position: relative;
+        width: 360px; /* Fixed width of the entire card */
+        background: var(--card-bg);
+        border-radius: 8px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column; /* Stack image containers and result area vertically */
+        align-items: center; /* Center content horizontally within the card */
+        gap: 10px; /* Gap between image row and result area */
+        box-shadow: 0 0 6px var(--highlight);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        cursor: pointer;
+        z-index: 1; /* Ensure cards are above background */
+    }
+    .preview-item:hover {
+        transform: scale(1.03);
+        box-shadow: 0 0 20px rgba(40, 230, 15, 0.98), 0 0 30px rgba(0, 255, 255, 0.2);
+        z-index: 10;
+    }
+
+    /* Container for the two images to sit side-by-side */
+    .image-row {
+        display: flex;
+        justify-content: center; /* Center the images if total width is less than 100% of card */
+        gap: 10px;
+        width: 100%; /* Take full width of the card's content area */
+    }
+
+    .image-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 160px; /* Fixed width for each image container */
+        position: relative;
+    }
+    .image-container img {
+        width: 160px;
+        border-radius: 5px;
+        display: block;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .image-container:hover img {
+        transform: translateY(-4px);
+        box-shadow: 0 0 15px rgb(240, 9, 9);
+    }
+
+    /* Styles for the single result label within the card */
+    .card-result-area {
+        width: 100%;
+        text-align: center;
+        margin-top: 5px; /* Spacing from images */
+        padding-top: 5px; /* Add some padding if background is different */
+    }
+
+    .result-label {
+        margin: 0 auto 5px auto; /* Center horizontally, add space below */
+        font-weight: bold;
+        padding: 3px 8px;
+        border-radius: 5px;
+        display: inline-block; /* Allows auto margins for centering when parent is text-align:center */
+        text-align: center;
+        white-space: nowrap;
+    }
+    .green-label {
+        background-color: #28a745;
+        color: white;
+    }
+    .red-label {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    /* Styles for the buttons - now they are block elements with auto margins for centering */
+    #predict-btn, #download-btn {
+        display: none; /* Hidden by default */
+        margin: 0 auto 10px auto; /* Center them and add margin below each */
+        padding: 12px 25px;
+        font-size: 1.1rem;
+        background-color: rgb(19, 233, 19);
+        color: white;
+        border: none;
+        border-radius: 7px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        z-index: 1; /* Ensure buttons are above background */
+    }
+    #predict-btn:hover:not(:disabled), #download-btn:hover:not(:disabled) {
+        background-color: rgb(19, 236, 19);
+    }
+    #predict-btn:disabled, #download-btn:disabled {
+        background-color: #555;
+        cursor: not-allowed;
+    }
+
+    /* Styles for the single progress bar within the card */
+    .progress-bar-container {
+        width: 80%; /* Width relative to .card-result-area */
+        height: 5px;
+        background: #444;
+        border-radius: 3px;
+        margin: 0 auto; /* Center horizontally */
+        overflow: hidden;
+    }
+    .progress-bar {
+        height: 5px;
+        width: 0%;
+        background: rgb(253, 49, 13);
+        transition: width 0.3s ease;
+    }
+
+    .loading-spinner {
+        border: 4px solid rgba(255, 255, 255, 0.2);
+        border-top: 4px solid rgb(181, 253, 13);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: auto; /* Center spinner within its container */
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg);}
+        100% { transform: rotate(360deg);}
+    }
+    .remove-btn {
+        opacity: 1;
+        transition: opacity 0.4s ease;
+    }
+
+    .remove-btn.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+    #drop-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 255, 0, 0.05);
+        border: 3px dashed rgba(0, 255, 0, 0.5);
+        z-index: 9999;
+        display: none;
+        justify-content: center;
+        align-items: center;
+        color: var(--text-color);
+        font-size: 1.5rem;
+        pointer-events: none;
+    }
+
+    /* New styles for download progress bar */
+    #download-progress-container {
+        width: 250px; /* Adjust width as needed */
+        height: 8px;
+        background-color: #333;
+        border-radius: 4px;
+        margin: 10px auto; /* Center horizontally, provide spacing */
+        overflow: hidden;
+        display: none; /* Hidden by default */
+    }
+
+    #download-progress-bar {
+        height: 100%;
+        width: 0%;
+        background-color: #007bff; /* Blue color for download progress */
+        border-radius: 4px;
+        transition: width 0.3s ease;
+    }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="dark-mode">
+
+<svg style="position: absolute; width: 0; height: 0; overflow: hidden;">
+    <filter id="grainyNoise">
+        <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="3" stitchTiles="stitch" />
+        <feColorMatrix type="saturate" values="0" />
+        <feBlend mode="multiply" in="SourceGraphic" />
+    </filter>
+</svg>
+
+<div id="theme-toggle-wrapper">
+    <label id="theme-label">🌙 Dark Mode</label>
+    <label class="switch">
+        <input type="checkbox" id="mode-toggle">
+        <span class="slider"></span>
+    </label>
+</div>
+
+<div id="main-content">
+    <h1>🧠 Brain Tumor Classifier with Grad-CAM</h1>
+
+    <div id="patient-name-section">
+        <label for="patient-name-input">👤 Patient Name:</label>
+        <input type="text" id="patient-name-input" placeholder="Give patient name and hit enter" />
+        <p id="patient-name-display" style="font-weight:bold; margin-top:10px; display:none;"></p>
+    </div>
+
+    <div id="upload-section">
+        <label for="image-input">📁 Click or Drag & Drop Images</label>
+        <input type="file" id="image-input" multiple accept="image/*" />
+    </div>
+    <div id="image-count" style="text-align:center; font-weight:bold; margin-bottom:20px;"></div>
+
+    <div id="preview"></div>
+
+    <div style="text-align: center; margin-bottom: 10px;">
+        <button id="predict-btn" disabled>🧠 Start Prediction</button>
+    </div>
+    
+    <div style="text-align: center; margin-bottom: 20px;">
+        <div id="download-progress-container">
+            <div id="download-progress-bar"></div>
+        </div>
+        <button id="download-btn" disabled>📄 Download Results PDF</button>
+    </div>
+</div>
+
+<div id="drop-overlay">
+    <span>Drop your images anywhere!</span>
+</div>
+
+<script>
+const imageInput = document.getElementById('image-input');
+const preview = document.getElementById('preview');
+const predictBtn = document.getElementById('predict-btn');
+const downloadBtn = document.getElementById('download-btn');
+const themeToggle = document.getElementById('mode-toggle');
+const themeLabel = document.getElementById('theme-label');
+const imageCountDiv = document.getElementById('image-count');
+const dropOverlay = document.getElementById('drop-overlay');
+const patientNameInput = document.getElementById('patient-name-input');
+const patientNameDisplay = document.getElementById('patient-name-display'); // Get the existing element
+const downloadProgressContainer = document.getElementById('download-progress-container');
+const downloadProgressBar = document.getElementById('download-progress-bar');
+
+let uploadedFiles = [];
+let lastResults = []; // Stores the results from the last prediction
+
+let dragCounter = 0; // To track dragenter/dragleave events for the *entire document*
+
+// Helper function to convert a string to Title Case (JavaScript equivalent of Python's .title())
+function toTitleCase(str) {
+    if (!str) return '';
+    return str.replace(
+        /\w\S*/g, // Matches any word characters followed by any non-whitespace characters
+        function(txt) {
+            return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+        }
+    );
+}
+
+// Initial setup: hide both buttons and progress bar on page load
+predictBtn.style.display = 'none';
+downloadBtn.style.display = 'none';
+downloadProgressContainer.style.display = 'none'; // Hide progress bar initially
+
+// Get the upload section label
+const uploadSectionLabel = document.querySelector('label[for="image-input"]');
+uploadSectionLabel.style.display = 'none'; // Hide it initially
+
+// New global variable to store the confirmed patient name
+let confirmedPatientName = ''; // Initially empty
+
+function resetUI(clearConfirmedName = true) { // Added a parameter
+    preview.innerHTML = ''; // Clear all image previews
+    predictBtn.style.display = 'none'; // Hide Start Prediction button
+    predictBtn.disabled = true;
+    downloadBtn.style.display = 'none'; // Hide Download PDF button
+    downloadBtn.disabled = true;
+    downloadProgressContainer.style.display = 'none'; // Hide download progress bar
+    downloadProgressBar.style.width = '0%'; // Reset progress bar
+    downloadBtn.textContent = '📄 Download Results PDF'; // Reset button text
+    lastResults = []; // Clear previous results
+    uploadedFiles = []; // Clear uploaded files array
+    imageCountDiv.textContent = ''; // Clear image count text
+    if (clearConfirmedName) { // Conditionally clear confirmedName
+        confirmedPatientName = '';
+    }
+}
+
+// Theme Toggle functionality
+themeToggle.addEventListener('change', () => {
+    document.body.classList.toggle('light-mode');
+    themeLabel.textContent = document.body.classList.contains('light-mode') ? '☀️ Light Mode' : '🌙 Dark Mode';
+    // Update confirm button color based on theme
+    if (document.body.classList.contains('light-mode')) {
+        confirmNameBtn.style.background = 'linear-gradient(135deg, #a7bfe8 0%, #6199e6 100%)'; // Lighter gradient for light mode
+        confirmNameBtn.style.color = '#333';
+        confirmNameBtn.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.2)';
+    } else {
+        confirmNameBtn.style.background = 'linear-gradient(135deg, #8a2be2 0%, #e63946 100%)'; // Original vibrant gradient for dark mode
+        confirmNameBtn.style.color = 'white';
+        confirmNameBtn.style.boxShadow = '0 6px 15px rgba(138, 43, 226, 0.4)';
+    }
+});
+
+// Function to control the enabled/disabled state of input elements
+function setInputStates(disabled) {
+    imageInput.disabled = disabled;
+    // Also visually disable the upload label if the input is disabled
+    if (disabled) {
+        uploadSectionLabel.style.pointerEvents = 'none';
+        uploadSectionLabel.style.opacity = '0.5';
+    } else {
+        uploadSectionLabel.style.pointerEvents = 'auto';
+        uploadSectionLabel.style.opacity = '1';
+        // Only show the upload label if the patient name was previously confirmed
+        // This condition is now primarily used for initial state; after name confirmation
+        // it will just ensure the label is visible/active.
+        if (patientNameDisplay.style.display === 'block') {
+             uploadSectionLabel.style.display = 'inline-block';
+        }
+    }
+
+    // Hide remove buttons when inputs are disabled (e.g., during prediction)
+    document.querySelectorAll('.remove-btn').forEach(btn => {
+        if (disabled) {
+            btn.classList.add('hidden');
+        } else {
+            // Only show if there are images, otherwise they are hidden by resetUI
+            if (uploadedFiles.length > 0) {
+                 btn.classList.remove('hidden');
+            }
+        }
+    });
+}
+
+// --- New: Patient Name Confirmation Logic ---
+const confirmNameBtn = document.createElement('button'); // Create the confirm button
+confirmNameBtn.textContent = 'Confirm Name';
+confirmNameBtn.id = 'confirm-name-btn';
+confirmNameBtn.style.cssText = `
+    padding: 12px 25px; /* Larger padding */
+    font-size: 1.1rem; /* Larger font */
+    border: none;
+    border-radius: 8px; /* Slightly more rounded */
+    cursor: pointer;
+    margin-left: 20px; /* Increased margin */
+    transition: all 0.3s ease; /* Smooth transition for all properties */
+    font-weight: bold; /* Make text bolder */
+    letter-spacing: 0.5px; /* Slight letter spacing */
+    background: linear-gradient(135deg, #8a2be2 0%, #e63946 100%); /* Vibrant gradient */
+    color: white;
+    box-shadow: 0 6px 15px rgba(138, 43, 226, 0.4); /* Prominent shadow */
+    position: relative; /* For pseudo-elements or hover effects */
+    overflow: hidden; /* For hover animation */
+    transform: translateY(0);
+`;
+
+// Hover effect for the new button style
+confirmNameBtn.addEventListener('mouseenter', () => {
+    // Apply hover effect only if not disabled
+    if (!confirmNameBtn.disabled) {
+        confirmNameBtn.style.transform = 'translateY(-3px)';
+        confirmNameBtn.style.boxShadow = '0 8px 20px rgba(138, 43, 226, 0.6)';
+        if (document.body.classList.contains('light-mode')) {
+             confirmNameBtn.style.boxShadow = '0 6px 15px rgba(0, 0, 0, 0.3)';
+        }
+    }
+});
+
+confirmNameBtn.addEventListener('mouseleave', () => {
+    // Reset hover effect only if not disabled
+    if (!confirmNameBtn.disabled) {
+        confirmNameBtn.style.transform = 'translateY(0)';
+        if (document.body.classList.contains('light-mode')) {
+             confirmNameBtn.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.2)';
+        } else {
+             confirmNameBtn.style.boxShadow = '0 6px 15px rgba(138, 43, 226, 0.4)';
+        }
+    }
+});
+
+
+confirmNameBtn.disabled = true; // Initially disabled
+
+// Append the confirm button next to the patient name input
+patientNameInput.parentNode.insertBefore(confirmNameBtn, patientNameInput.nextSibling);
+
+// Initial theme setup for confirm button (when page loads)
+if (document.body.classList.contains('light-mode')) {
+    confirmNameBtn.style.background = 'linear-gradient(135deg, #a7bfe8 0%, #6199e6 100%)';
+    confirmNameBtn.style.color = '#333';
+    confirmNameBtn.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.2)';
+}
+
+
+patientNameInput.addEventListener('input', () => {
+    // If the input value is not empty AND it's different from the confirmed name,
+    // then enable the confirm button. Otherwise, disable it.
+    if (patientNameInput.value.trim() !== confirmedPatientName.trim() && patientNameInput.value.trim() !== '') {
+        confirmNameBtn.disabled = false;
+    } else {
+        confirmNameBtn.disabled = true;
+    }
+
+    if (confirmNameBtn.disabled) {
+        confirmNameBtn.style.opacity = '0.7'; // Visually disable
+        confirmNameBtn.style.cursor = 'not-allowed';
+        confirmNameBtn.style.transform = 'translateY(0)'; // Reset hover state if disabled while hovering
+        confirmNameBtn.style.boxShadow = 'none'; // No shadow when disabled
+    } else {
+        confirmNameBtn.style.opacity = '1';
+        confirmNameBtn.style.cursor = 'pointer';
+        // Reapply initial shadow based on current theme if it's enabled
+        if (document.body.classList.contains('light-mode')) {
+            confirmNameBtn.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.2)';
+        } else {
+            confirmNameBtn.style.boxShadow = '0 6px 15px rgba(138, 43, 226, 0.4)';
+        }
+    }
+});
+
+
+confirmNameBtn.addEventListener('click', () => {
+    const patientName = patientNameInput.value.trim();
+    if (patientName) {
+        // Only call resetUI(true) to clear confirmedName if a NEW name is confirmed
+        // or if we are starting a completely fresh session (no images and no confirmed name).
+        if (toTitleCase(patientName) !== confirmedPatientName && confirmedPatientName !== '') {
+            resetUI(true); // Clear everything and confirmed name if name is changed
+        } else if (uploadedFiles.length > 0 && toTitleCase(patientName) === confirmedPatientName) {
+            // If images exist and user re-confirms the same name, don't clear images, just update display.
+            // This case might not typically happen with current UI flow, but good for robustness.
+            // No resetUI call needed here for images/confirmedName.
+        } else { // First time confirmation or confirming empty name
+            resetUI(true); // Clear everything including confirmedName
+        }
+
+
+        // Updated text for patient name display
+        patientNameDisplay.textContent = `The name of the patient is: ${toTitleCase(patientName)}`;
+        confirmedPatientName = toTitleCase(patientName); // Store the newly confirmed name
+
+        patientNameDisplay.style.display = 'block';
+        patientNameInput.disabled = true; // Disable input after name is set
+        confirmNameBtn.disabled = true; // Disable confirm button
+        confirmNameBtn.style.display = 'none'; // Hide confirm button
+
+        // Clear the patient name input field
+        patientNameInput.value = ''; // Clear the input field after confirmation
+
+        setInputStates(false); // Enable choose file and drag/drop
+        uploadSectionLabel.style.display = 'inline-block'; // Show upload button
+        uploadSectionLabel.focus(); // Focus on the upload button
+    } else {
+        patientNameDisplay.style.display = 'none';
+        confirmedPatientName = ''; // Clear confirmed name if input is empty/invalidated
+        alert("Please enter a patient name.");
+        patientNameInput.focus();
+    }
+});
+
+// Modify keydown for patientNameInput: Enter key now triggers confirm button click
+patientNameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        if (!confirmNameBtn.disabled) { // Only click if confirm button is enabled
+            confirmNameBtn.click();
+        }
+        e.preventDefault(); // Prevent default Enter key behavior (e.g., form submission)
+    }
+});
+
+// Function to handle newly selected files (from input change or drag/drop)
+function handleFiles(files) {
+    // Prevent new file uploads if prediction is ongoing
+    if (predictBtn.disabled && predictBtn.style.display === 'block') {
+        alert("Prediction is currently in progress. Please wait until it's finished.");
+        return;
+    }
+
+    // Allow file upload if a patient name has been successfully confirmed at some point
+    if (confirmedPatientName !== '') {
+        // Filter for image files
+        const newFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+
+        // Only call resetUI and proceed if new, valid images are actually selected
+        if (newFiles.length === 0) {
+            if (uploadedFiles.length === 0) {
+                 imageCountDiv.textContent = '';
+            }
+            return; // Exit the function if no valid files are provided
+        }
+
+        // IMPORTANT: Clear previous images and results, but NOT the confirmedPatientName
+        // unless it's the very first image upload for this confirmed name.
+        if (uploadedFiles.length > 0) { // If files were already present, just clear previews/results
+            preview.innerHTML = '';
+            lastResults = [];
+            predictBtn.style.display = 'none';
+            predictBtn.disabled = true;
+            downloadBtn.style.display = 'none';
+            downloadBtn.disabled = true;
+            downloadProgressContainer.style.display = 'none';
+        } else { // First file upload for this confirmed patient
+            resetUI(false); // Clear UI but keep the confirmedPatientName
+        }
+
+
+        uploadedFiles = newFiles; // Update the global uploadedFiles array
+
+        const count = uploadedFiles.length;
+        imageCountDiv.textContent = `📷 ${count} image${count > 1 ? 's' : ''} selected`;
+
+        // Show "Start Prediction" button when images are selected
+        predictBtn.style.display = 'block';
+        predictBtn.disabled = false;
+
+        // Create preview items for each selected image
+        uploadedFiles.forEach((file, i) => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const div = document.createElement('div');
+                div.classList.add('preview-item');
+                div.id = `preview-item-${i}`; // Assign a unique ID for easy access
+                div.innerHTML = `
+                    <div class="image-row">
+                        <div class="image-container original-image">
+                            <img src="${e.target.result}" alt="Uploaded Image" />
+                        </div>
+                        <div class="image-container gradcam-image" style="min-height: 160px; display:none; justify-content:center; align-items:center;">
+                            <div class="loading-spinner"></div>
+                        </div>
+                    </div>
+                    <div class="card-result-area">
+                        <div class="result-label" id="card-result-label-${i}" style="display:none;"></div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" id="card-progress-bar-${i}"></div>
+                        </div>
+                    </div>
+                `;
+                preview.appendChild(div);
+            };
+            reader.readAsDataURL(file); // Read file as Data URL for immediate preview
+        });
+
+        // Ensure remove buttons are visible for newly added items after a slight delay
+        setTimeout(() => {
+            document.querySelectorAll('.remove-btn').forEach(btn => {
+                btn.classList.remove('hidden');
+            });
+        }, 300);
+    } else {
+        alert("Please confirm the patient's name before uploading images.");
+        patientNameInput.focus();
+    }
+}
+
+
+// Listen for file input changes
+imageInput.addEventListener('change', (e) => {
+    handleFiles(e.target.files);
+});
+
+// Simulates progress for the prediction progress bar
+function simulateProgressBar(index) {
+    return new Promise(resolve => {
+        let progress = 0;
+        const bar = document.getElementById(`card-progress-bar-${index}`);
+        if (bar) bar.style.width = '0%'; // Initialize width
+
+        const interval = setInterval(() => {
+            progress += Math.random() * 15; // Random increment
+            if (progress >= 95) {
+                clearInterval(interval);
+                if (bar) bar.style.width = '95%'; // Stop just before 100%
+                resolve();
+            } else {
+                if (bar) bar.style.width = progress + '%';
+            }
+        }, 200); // Update every 200ms
+    });
+}
+
+// Completes the prediction progress bar to 100%
+function fillProgressBarToComplete(index) {
+    return new Promise(resolve => {
+        const bar = document.getElementById(`card-progress-bar-${index}`);
+        let currentWidth = parseFloat(bar.style.width);
+        const interval = setInterval(() => {
+            currentWidth += 5;
+            if (currentWidth >= 100) {
+                if (bar) bar.style.width = '100%';
+                clearInterval(interval);
+                resolve();
+            } else {
+                if (bar) bar.style.width = currentWidth + '%';
+            }
+        }, 50); // Fast completion
+    });
+}
+
+// Event listener for the "Start Prediction" button
+predictBtn.addEventListener('click', async () => {
+    if (uploadedFiles.length === 0) return; // Do nothing if no files
+
+    predictBtn.disabled = true; // Disable prediction button during process
+    downloadBtn.style.display = 'none'; // Hide download button when new prediction starts
+    downloadBtn.disabled = true;
+    downloadProgressContainer.style.display = 'none'; // Hide download progress bar
+
+    // Disable all relevant inputs and drag-drop during prediction
+    setInputStates(true);
+    // Ensure patient name input and confirm button remain hidden/disabled during prediction
+    patientNameInput.disabled = true;
+    confirmNameBtn.disabled = true;
+    confirmNameBtn.style.display = 'none';
+
+
+    // Reset visual state for each preview item before prediction
+    uploadedFiles.forEach((_, i) => {
+        const bar = document.getElementById(`card-progress-bar-${i}`);
+        if (bar) bar.style.width = '0%';
+        const label = document.getElementById(`card-result-label-${i}`);
+        if (label) label.style.display = 'none';
+
+        // Show loading spinner in Grad-CAM area
+        const gradcamDiv = document.querySelector(`#preview-item-${i} .gradcam-image`);
+        if (gradcamDiv) {
+            gradcamDiv.style.display = 'flex'; // Make sure Grad-CAM area is visible
+            gradcamDiv.innerHTML = `<div class="loading-spinner"></div>`; // Add spinner
+        }
+    });
+
+    // Start simulating progress bars
+    const progressPromises = uploadedFiles.map((_, i) => simulateProgressBar(i));
+    await Promise.all(progressPromises); // Wait for all simulations to reach ~95%
+
+    // Prepare FormData for backend API call
+    const formData = new FormData();
+    uploadedFiles.forEach(file => formData.append('images', file));
+
+    try {
+        // Send images to backend for prediction
+        const response = await fetch('/predict', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Prediction failed on server.');
+        }
+
+        const results = await response.json();
+        lastResults = results; // Store results for PDF download
+
+        // Update each preview item with prediction results and Grad-CAM image
+        for (let i = 0; i < results.length; i++) {
+            const item = results[i];
+            const previewDiv = document.getElementById(`preview-item-${i}`);
+            if (!previewDiv) continue; // Skip if element no longer exists
+
+            // Update the single card-level result label
+            const cardLabel = document.getElementById(`card-result-label-${i}`);
+            cardLabel.style.display = 'inline-block';
+            cardLabel.className = 'result-label ' + (item.color === 'green' ? 'green-label' : 'red-label');
+            // Use toTitleCase helper function here for correct capitalization
+            cardLabel.innerHTML = `${toTitleCase(item.prediction.replace('_', ' '))} ${item.emoji}<br>(${item.probability}%)`;
+
+            // Update Grad-CAM image
+            const gradcamDiv = previewDiv.querySelector('.gradcam-image');
+            const gradcamImg = new Image();
+            gradcamImg.src = `/gradcam/${item.gradcam}`; // Path to Grad-CAM image served by FastAPI
+            gradcamImg.alt = "Grad-CAM";
+            gradcamImg.onload = async () => {
+                const spinner = gradcamDiv.querySelector('.loading-spinner');
+                if (spinner) spinner.remove(); // Remove spinner
+                gradcamDiv.appendChild(gradcamImg); // Add Grad-CAM image
+                await fillProgressBarToComplete(i); // Complete progress bar
+            };
+            gradcamImg.onerror = () => {
+                const spinner = gradcamDiv.querySelector('.loading-spinner');
+                if (spinner) spinner.remove();
+                gradcamDiv.innerHTML = `<p style="color:red; font-size:0.8rem; text-align:center;">Error loading Grad-CAM</p>`;
+                console.error(`Failed to load Grad-CAM image: /gradcam/${item.gradcam}`);
+            };
+        }
+
+        // Show "Download Results PDF" button after all predictions are done
+        downloadBtn.style.display = 'block';
+        downloadBtn.disabled = false;
+
+    } catch (err) {
+        console.error('Prediction failed:', err);
+        alert('Prediction failed. Please try again. Error: ' + err.message);
+    } finally {
+        predictBtn.disabled = false; // Re-enable prediction button
+
+        // Re-enable patient name change functionality
+        patientNameInput.disabled = false;
+        // Ensure the input field is empty after prediction
+        patientNameInput.value = '';
+
+        confirmNameBtn.style.display = 'inline-block'; // Show confirm button again
+        // Confirm button disabled if input is empty (which it now is)
+        confirmNameBtn.disabled = (patientNameInput.value.trim() === '');
+
+        // Re-enable image upload and drag-drop directly
+        imageInput.disabled = false;
+        uploadSectionLabel.style.pointerEvents = 'auto';
+        uploadSectionLabel.style.opacity = '1';
+        uploadSectionLabel.style.display = 'inline-block'; // Make "Choose File" button visible
+
+        // Re-show remove buttons if there are still uploaded files (results might not be cleared until next action)
+        document.querySelectorAll('.remove-btn').forEach(btn => {
+            btn.classList.remove('hidden');
+        });
+    }
+});
+
+// Simulates progress for the download progress bar
+function simulateDownloadProgressBar() {
+    return new Promise(resolve => {
+        let progress = 0;
+        downloadProgressBar.style.width = '0%'; // Initialize width
+        downloadProgressContainer.style.display = 'block'; // Show the progress bar container
+        downloadBtn.textContent = 'Generating PDF...'; // Change button text
+
+        const interval = setInterval(() => {
+            progress += Math.random() * 10; // Random increment
+            if (progress >= 95) {
+                clearInterval(interval);
+                downloadProgressBar.style.width = '95%'; // Stop just before 100%
+                resolve();
+            } else {
+                downloadProgressBar.style.width = currentWidth + '%';
+            }
+        }, 150); // Update every 150ms
+    });
+}
+
+// Completes the download progress bar to 100%
+function fillDownloadProgressBarToComplete() {
+    return new Promise(resolve => {
+        let currentWidth = parseFloat(downloadProgressBar.style.width);
+        const interval = setInterval(() => {
+            currentWidth += 5;
+            if (currentWidth >= 100) {
+                downloadProgressBar.style.width = '100%';
+                clearInterval(interval);
+                resolve();
+            } else {
+                downloadProgressBar.style.width = currentWidth + '%';
+            }
+        }, 50); // Fast completion
+    });
+}
+
+
+// Event listener for the "Download Results PDF" button
+downloadBtn.addEventListener('click', async () => {
+    if (!lastResults.length) return; // Do nothing if no results
+
+    downloadBtn.disabled = true; // Disable download button immediately
+
+    await simulateDownloadProgressBar(); // Start download progress simulation
+
+    // Use the stored confirmedPatientName for the PDF filename
+    const patientNameForPdf = confirmedPatientName;
+    let filename = 'brain_tumor_results.pdf';
+
+    if (patientNameForPdf) {
+        // Sanitize patient name for filename (replace spaces with underscores, remove special chars)
+        const sanitizedPatientName = patientNameForPdf.replace(/[^a-zA-Z0-9_ -]/g, '').replace(/ /g, '_');
+        filename = `${sanitizedPatientName}_brain_scan_results.pdf`;
+    }
+
+    try {
+        const response = await fetch('/download_pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ results: lastResults, patient_name: patientNameForPdf }) // Send stored results and patient name to backend
+        });
+
+        if (response.ok) {
+            const blob = await response.blob(); // Get response as Blob
+            const url = window.URL.createObjectURL(blob); // Create URL for the Blob
+            const a = document.createElement('a'); // Create a temporary anchor element
+            a.href = url;
+            a.download = filename; // Set download filename dynamically
+            document.body.appendChild(a); // Append to body (necessary for click)
+            a.click(); // Programmatically click to trigger download
+            a.remove(); // Clean up the anchor element
+            window.URL.revokeObjectURL(url); // Release the Blob URL
+            await fillDownloadProgressBarToComplete(); // Complete progress bar to 100%
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to download PDF on server.');
+        }
+    } catch (err) {
+        console.error('PDF download failed:', err);
+        alert('Failed to download PDF. Please try again. Error: ' + err.message);
+    } finally {
+        downloadBtn.disabled = false; // Re-enable download button
+        downloadBtn.textContent = '📄 Download Results PDF'; // Reset button text
+        downloadProgressContainer.style.display = 'none'; // Hide progress bar
+        downloadProgressBar.style.width = '0%'; // Reset progress
+
+        // Auto-refresh after PDF download
+        console.log("PDF download initiated. Refreshing page in 1 second...");
+        setTimeout(() => {
+            location.reload(); // Refresh the entire page
+        }, 1000); // Give a brief moment for the download to register before refreshing
+    }
+});
+
+// Auto-delete temporary files on tab close/refresh
+// This sends a small request to the backend to clean up static files.
+window.addEventListener('beforeunload', () => {
+    navigator.sendBeacon('/clear-temp');
+});
+
+// Mutation Observer to dynamically add remove buttons to new preview items
+const observer = new MutationObserver(() => {
+    const previewItems = document.querySelectorAll('.preview-item');
+    previewItems.forEach((item, index) => {
+        // Only add if button doesn't already exist for this item
+        if (!item.querySelector('.remove-btn')) {
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = '❌ Remove';
+            removeBtn.className = 'remove-btn';
+            removeBtn.style.cssText = `
+                position: absolute;
+                top: 5px;
+                right: 5px;
+                background: #ff4c4c;
+                border: none;
+                border-radius: 5px;
+                color: white;
+                padding: 3px 8px;
+                font-size: 0.75rem;
+                cursor: pointer;
+                z-index: 2;
+            `;
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent the parent preview-item's click event
+                if (predictBtn.disabled && predictBtn.style.display === 'block') { // Check if prediction is active
+                    alert("Cannot remove images while prediction is in progress.");
+                    return;
+                }
+
+                const indexToRemove = Array.from(preview.children).indexOf(item);
+                uploadedFiles.splice(indexToRemove, 1); // Remove from uploadedFiles array
+                item.remove(); // Remove the item from the DOM
+
+                // Re-index remaining preview items and their progress bars/labels
+                const remainingItems = document.querySelectorAll('.preview-item');
+                remainingItems.forEach((el, idx) => {
+                    el.id = `preview-item-${idx}`; // Update item ID
+                    const cardProgressBar = el.querySelector(`#card-progress-bar-${idx}`);
+                    if (cardProgressBar) cardProgressBar.id = `card-progress-bar-${idx}`;
+                    const cardResultLabel = el.querySelector(`#card-result-label-${idx}`);
+                    if (cardResultLabel) cardResultLabel.id = `card-result-label-${idx}`;
+                });
+
+                if (uploadedFiles.length === 0) {
+                    resetUI(); // If no files left, reset the entire UI (this will also clear confirmedPatientName)
+                    predictBtn.style.display = 'none'; // Hide predict button if no images
+                    predictBtn.disabled = true;
+                } else {
+                    const count = uploadedFiles.length;
+                    imageCountDiv.textContent = `📷 ${count} image${count > 1 ? 's' : ''} selected`;
+                }
+            });
+            item.appendChild(removeBtn);
+        }
+    });
+});
+
+// Observe changes to the #preview div (where new image cards are added)
+observer.observe(preview, { childList: true, subtree: true });
+
+
+// Universal Drag and Drop for the entire document
+document.addEventListener('dragenter', (e) => {
+    // Only show overlay if a name has been confirmed and files are being dragged
+    if (confirmedPatientName !== '' && e.dataTransfer.types.includes('Files')) {
+        dragCounter++;
+        if (dragCounter === 1) { // Show overlay only on first true dragenter
+            dropOverlay.style.display = 'flex';
+            dropOverlay.style.pointerEvents = 'auto'; // Enable pointer events on overlay
+        }
+    }
+});
+
+document.addEventListener('dragover', (e) => {
+    e.preventDefault(); // Crucial to allow dropping
+    // Only allow dragover if a name has been confirmed and files are being dragged
+    if (confirmedPatientName !== '' && e.dataTransfer.types.includes('Files')) {
+        e.dataTransfer.dropEffect = 'copy'; // Visual feedback for allowed drop
+    } else {
+        e.dataTransfer.dropEffect = 'none'; // Disallow drop
+    }
+});
+
+document.addEventListener('dragleave', (e) => {
+    // Ensure we decrement only if the drag started when inputs were enabled
+    if (e.dataTransfer.types.includes('Files')) {
+        dragCounter--;
+        if (dragCounter === 0) { // If drag has left the entire document
+            dropOverlay.style.display = 'none';
+            dropOverlay.style.pointerEvents = 'none'; // Disable pointer events on overlay
+        }
+    }
+});
+
+document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragCounter = 0; // Reset counter regardless of where the drop happened
+    dropOverlay.style.display = 'none'; // Always hide overlay on drop
+    dropOverlay.style.pointerEvents = 'none'; // Disable pointer events on overlay
+
+    // Only process drop if a name has been confirmed
+    if (confirmedPatientName !== '') {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFiles(files); // Process dropped files (handleFiles itself checks for prediction ongoing)
+        }
+    } else {
+        // Provide feedback if patient name is not confirmed
+        alert("Please confirm the patient's name before uploading images.");
+    }
+});
+
+// Initial state setup on page load
+// Everything should be disabled except patientNameInput and confirmNameBtn
+setInputStates(true); // Disable image input and drag/drop
+uploadSectionLabel.style.display = 'none'; // Hide upload label
+patientNameInput.disabled = false; // Ensure patient name input is enabled
+patientNameInput.focus(); // Focus on patient name input on load
+confirmNameBtn.style.display = 'inline-block'; // Show confirm button initially
+// confirmNameBtn.disabled will be set by the input event listener for patientNameInput
+</script>
+</body>
+</html>
